@@ -49,12 +49,14 @@ func (t *Transfer) ReadConn(c chan Ms) {
 		if err != nil {
 			fmt.Println(err)
 		}
-		tt := message.MsgType[msg.Type]
-		mm := message.Message{}
-		mm.Data = reflect.New(tt).Interface()
-		err = json.Unmarshal(info[:i], &mm)
-		if err != nil {
-			fmt.Println(err)
+		tt, ok := message.MsgType[msg.Type]
+		var mm = msg
+		if ok {
+			mm.Data = reflect.New(tt).Interface()
+			err = json.Unmarshal(info[:i], &mm)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 		w := Ms{
 			Msg:  mm,

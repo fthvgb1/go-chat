@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"chat/dao"
 	"chat/message"
 	"chat/process"
 	"chat/user"
@@ -34,13 +35,13 @@ func NewServer() *Server {
 	return &Server{}
 }
 
-func (server *Server) Login(uid int, pw string) error {
+func (server *Server) Login(uid int, pw string) (*user.User, error) {
 	for _, u := range server.Users {
 		if uid == u.Id && pw == u.Password {
-			return nil
+			return &u, nil
 		}
 	}
-	return errors.New("not found this u")
+	return nil, errors.New("not found this u")
 }
 
 func (server *Server) Store() {
@@ -56,12 +57,17 @@ func (server *Server) Store() {
 	}
 }
 
-func (server *Server) AddUser(name, pw string, sex int8) {
+func (server *Server) AddUser(name, pw string, sex int8) error {
 	server.Id++
 	u := user.User{
-		server.Id, name, sex, pw,
+		Id: server.Id, Name: name, Sex: sex, Password: pw,
 	}
 	server.Users = append(server.Users, u)
+	err := dao.AddUser(u)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (server *Server) Process(conn net.Conn) {
@@ -74,23 +80,24 @@ func (server *Server) Process(conn net.Conn) {
 }
 
 func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
-	err := server.Login(s.Uid, s.Pw)
+	user, err := server.Login(s.Uid, s.Pw)
+
 	re := message.Message{
 		Type: "login_response",
 		Data: nil,
 	}
-	re.Data = message.Correspond{
+
+	r := message.Correspond{
 		Code:  1,
-		Msg:   "success",
+		Msg:   user.Name,
 		Error: "",
 	}
 	if err != nil {
-		re.Data = message.Correspond{
-			Code:  0,
-			Msg:   "login fail",
-			Error: "pw fail or user not exist",
-		}
+		r.Code = 0
+		r.Msg = "login fail"
+		r.Error = "pw fail or user not exist"
 	}
+	re.Data = r
 
 	err = process.WriteConn(conn, re)
 	return "login_send", err
@@ -104,6 +111,24 @@ func (s *Server) processConn() {
 			case "login_send":
 				l := c.Msg.Data.(*message.LoginS)
 				_, err := s.do(l, c.Conn)
+				if err != nil {
+					fmt.Println(err)
+				}
+			case "add_user":
+				u := c.Msg.Data.(*user.User)
+				err := s.AddUser(u.Name, u.Password, u.Sex)
+				r := message.Message{
+					Type: "add_user_response",
+					Code: 1,
+					Msg:  "",
+					Data: nil,
+				}
+				if err != nil {
+					fmt.Println(err)
+					r.Msg = err.Error()
+					r.Code = 0
+				}
+				err = process.WriteConn(c.Conn, r)
 				if err != nil {
 					fmt.Println(err)
 				}
