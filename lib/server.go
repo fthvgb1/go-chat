@@ -4,12 +4,15 @@ import (
 	"chat/dao"
 	"chat/message"
 	"chat/process"
+	"chat/rdm"
 	"chat/user"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"strconv"
 )
 
 type Server struct {
@@ -40,6 +43,17 @@ func (server *Server) Login(uid int, pw string) (*user.User, error) {
 		if uid == u.Id && pw == u.Password {
 			return &u, nil
 		}
+	}
+	u := rdm.GetRdm().HGetAll(context.Background(), "go_chat_Users:"+strconv.Itoa(uid))
+	if u != nil && u.Val()["password"] == pw {
+		t := u.Val()
+		tt, _ := json.Marshal(t)
+		uu := &user.User{}
+		x := json.Unmarshal(tt, uu)
+		if nil != x {
+			return nil, x
+		}
+		return uu, nil
 	}
 	return nil, errors.New("not found this u")
 }
@@ -80,7 +94,7 @@ func (server *Server) Process(conn net.Conn) {
 }
 
 func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
-	user, err := server.Login(s.Uid, s.Pw)
+	login, err := server.Login(s.Uid, s.Pw)
 
 	re := message.Message{
 		Type: "login_response",
@@ -88,14 +102,14 @@ func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 	}
 
 	r := message.Correspond{
-		Code:  1,
-		Msg:   user.Name,
-		Error: "",
+		Code:  0,
+		Msg:   "login fail",
+		Error: "pw fail or login not exist ",
 	}
-	if err != nil {
-		r.Code = 0
-		r.Msg = "login fail"
-		r.Error = "pw fail or user not exist"
+	if err == nil {
+		r.Code = 1
+		r.Msg = login.Name
+		r.Error = ""
 	}
 	re.Data = r
 

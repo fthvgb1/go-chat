@@ -3,10 +3,10 @@ package user
 import "errors"
 
 type User struct {
-	Id       int
-	Name     string
-	Sex      int8
-	Password string
+	Id       int    `json:"id"`
+	Name     string `json:"name"`
+	Sex      int8   `json:"sex"`
+	Password string `json:"password"`
 }
 
 func (u *User) CheckPassword(p string) error {

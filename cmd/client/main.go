@@ -101,6 +101,7 @@ func handleMsg() { //处理
 				} else {
 					fmt.Println(c.Msg.Msg)
 				}
+				cc <- 1
 			}
 		}
 	}
@@ -139,6 +140,7 @@ func main() {
 			<-cc
 		case 2:
 			addUser(conn)
+			<-cc
 		case 3:
 			//s.Store()
 			loop = false

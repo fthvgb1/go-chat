@@ -28,11 +28,11 @@ func AddUser(user user.User) error {
 		return errors.New("user name can't be empty")
 	}
 
-	r := getRdm.HMSet(Ctx, "go_chat_Users", map[string]interface{}{
-		"id":   strconv.Itoa(user.Id),
-		"name": user.Name,
-		"pw":   user.Password,
-		"sex":  strconv.Itoa(int(user.Sex)),
+	r := getRdm.HMSet(Ctx, "go_chat_Users:"+strconv.Itoa(user.Id), map[string]interface{}{
+		"id":       strconv.Itoa(user.Id),
+		"name":     user.Name,
+		"password": user.Password,
+		"sex":      strconv.Itoa(int(user.Sex)),
 	})
 	if e := r.Err(); e != nil {
 		return e
