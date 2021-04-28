@@ -1,35 +1,74 @@
 package main
 
 import (
+	"bufio"
 	"chat/message"
 	"chat/process"
 	"chat/user"
 	"fmt"
 	"net"
+	"os"
 )
 
-var cc = make(chan int)
+var menu1 = make(chan int)
+var menu2 = make(chan int)
 var rc = make(chan process.Ms, 20)
+var thisUser user.User
 
 func login(conn net.Conn) error {
 	var id int
 	var pw string
-	_, err := fmt.Scanf("%d %s", &id, &pw)
-	if err != nil {
-		return err
+	for {
+		stdin := bufio.NewReader(os.Stdin)
+		_, err := fmt.Fscanf(stdin, "%d %s", &id, &pw)
+		if err != nil {
+			fmt.Println(err, "请重新输入")
+		} else {
+			break
+		}
 	}
 	var msg = message.LoginS{
 		Uid: id, Pw: pw,
 	}
 	m := message.Message{Type: "login_send", Data: msg}
-	err = process.WriteConn(conn, m)
+	err := process.WriteConn(conn, m)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func showMenu(name string) {
+func sendMessage(conn net.Conn) {
+	for {
+		fmt.Print("请输入内容: ")
+		var i string
+		_, err := fmt.Scanf("%s", &i)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if i == "exit" {
+			break
+		}
+		err = process.WriteConn(conn, message.Message{
+			Type: "user_message",
+			Code: 1,
+			Msg:  "",
+			Data: message.UserMessage{
+				TotUid:       0,
+				FromUid:      thisUser.Id,
+				FromUserName: thisUser.Name,
+				Msg:          i,
+			},
+		})
+		if err != nil {
+			fmt.Println(err)
+			//return
+		}
+	}
+}
+
+func showMenu(name string, ms process.Ms) {
 
 	for {
 		fmt.Printf("-----------------------------欢迎%s登录---------------------------\n", name)
@@ -47,9 +86,20 @@ func showMenu(name string) {
 		switch k {
 		case 1:
 			fmt.Println("在线用户列表")
+			err := process.WriteConn(ms.Conn, message.Message{
+				Type: "online_users",
+				Code: 0,
+				Msg:  "",
+				Data: nil,
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
+			<-menu2
 		case 2:
-			fmt.Println("发送信息")
+			sendMessage(ms.Conn)
 		case 4:
+			menu1 <- 1
 			return
 		}
 	}
@@ -65,7 +115,7 @@ func addUser(conn net.Conn) {
 		fmt.Println(err)
 		return
 	}
-	process.WriteConn(conn, message.Message{
+	err = process.WriteConn(conn, message.Message{
 		Type: "add_user",
 		Code: 0,
 		Msg:  "",
@@ -76,6 +126,10 @@ func addUser(conn net.Conn) {
 			Password: pw,
 		},
 	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func handleMsg() { //处理
@@ -87,21 +141,32 @@ func handleMsg() { //处理
 				if r, ok := c.Msg.Data.(*message.Correspond); ok {
 					if r.Error == "" {
 						fmt.Println("登录成功！")
-						showMenu(r.Msg)
+						thisUser = r.User
+						go showMenu(r.Msg, c)
 					} else {
 						fmt.Println("登录失败", r.Error)
+						menu1 <- 1
 					}
 				} else {
 					fmt.Println("登录失败")
 				}
-				cc <- 1
 			case "add_user_response":
 				if c.Msg.Code == 1 {
 					fmt.Println("添加用户成功")
 				} else {
 					fmt.Println(c.Msg.Msg)
 				}
-				cc <- 1
+				menu1 <- 1
+			case "user_message":
+				m := c.Msg.Data.(*message.UserMessage)
+				fmt.Printf("\r%s: %s\n", m.FromUserName, m.Msg)
+			case "online_users":
+				list := c.Msg.Data.(*message.UsersPres)
+				fmt.Printf("%s\t%s\n", "id", "昵称")
+				for _, pre := range list.Data {
+					fmt.Printf("%d\t%s\n", pre.Id, pre.Name)
+				}
+				menu2 <- 1
 			}
 		}
 	}
@@ -137,10 +202,10 @@ func main() {
 			if err != nil {
 				fmt.Println("login fail :", err)
 			}
-			<-cc
+			<-menu1
 		case 2:
 			addUser(conn)
-			<-cc
+			<-menu1
 		case 3:
 			//s.Store()
 			loop = false

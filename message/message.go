@@ -9,14 +9,32 @@ var MsgType = map[string]reflect.Type{
 	"login_send":     reflect.TypeOf(&LoginS{}).Elem(),
 	"login_response": reflect.TypeOf(&Correspond{}).Elem(),
 	"add_user":       reflect.TypeOf(&user.User{}).Elem(),
+	"user_message":   reflect.TypeOf(&UserMessage{}).Elem(),
+	"online_users":   reflect.TypeOf(&UsersPres{}).Elem(),
 }
 
 type Message struct {
 	//Id int
-	Type string
-	Code int
-	Msg  string
-	Data interface{}
+	Type string      `json:"type"`
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
+type UsersPres struct {
+	Data []UserPre
+}
+
+type UserPre struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type UserMessage struct {
+	FromUid      int
+	FromUserName string
+	TotUid       int
+	Msg          string
 }
 
 type LoginS struct {
@@ -29,4 +47,5 @@ type Correspond struct {
 	Code  int
 	Msg   string
 	Error string
+	User  user.User
 }

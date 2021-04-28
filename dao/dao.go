@@ -15,24 +15,24 @@ func init() {
 	Ctx = context.Background()
 }
 
-func AddUser(user user.User) error {
+func AddUser(u user.User) error {
 	getRdm := rdm.GetRdm()
-	if user.Name == "" {
+	if u.Name == "" {
 		return errors.New("user name can't be empty")
 	}
-	if user.Password == "" {
+	if u.Password == "" {
 		return errors.New("user password can't be empty")
 	}
 
-	if utils.IsContain(user.Sex, []int8{1, 2}) < 0 {
+	if utils.IsContain(u.Sex, []int8{1, 2}) < 0 {
 		return errors.New("user name can't be empty")
 	}
 
-	r := getRdm.HMSet(Ctx, "go_chat_Users:"+strconv.Itoa(user.Id), map[string]interface{}{
-		"id":       strconv.Itoa(user.Id),
-		"name":     user.Name,
-		"password": user.Password,
-		"sex":      strconv.Itoa(int(user.Sex)),
+	r := getRdm.HMSet(Ctx, user.GetUserKey(u.Id), map[string]interface{}{
+		"id":       strconv.Itoa(u.Id),
+		"name":     u.Name,
+		"password": u.Password,
+		"sex":      strconv.Itoa(int(u.Sex)),
 	})
 	if e := r.Err(); e != nil {
 		return e

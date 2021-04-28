@@ -44,18 +44,20 @@ func (server *Server) Login(uid int, pw string) (*user.User, error) {
 			return &u, nil
 		}
 	}
-	u := rdm.GetRdm().HGetAll(context.Background(), "go_chat_Users:"+strconv.Itoa(uid))
+	u := rdm.GetRdm().HGetAll(context.Background(), user.GetUserKey(uid))
 	if u != nil && u.Val()["password"] == pw {
 		t := u.Val()
-		tt, _ := json.Marshal(t)
-		uu := &user.User{}
-		x := json.Unmarshal(tt, uu)
-		if nil != x {
-			return nil, x
+		id, _ := strconv.Atoi(t["id"])
+		sex, _ := strconv.Atoi(t["sex"])
+		uu := &user.User{
+			Id:   id,
+			Name: t["name"],
+			Sex:  int8(sex),
+			//Password: "",
 		}
 		return uu, nil
 	}
-	return nil, errors.New("not found this u")
+	return nil, errors.New("not found this user")
 }
 
 func (server *Server) Store() {
@@ -95,7 +97,6 @@ func (server *Server) Process(conn net.Conn) {
 
 func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 	login, err := server.Login(s.Uid, s.Pw)
-
 	re := message.Message{
 		Type: "login_response",
 		Data: nil,
@@ -110,6 +111,13 @@ func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 		r.Code = 1
 		r.Msg = login.Name
 		r.Error = ""
+		r.User = *login
+		process.Push(&process.UserProcess{
+			Uid:  login.Id,
+			Conn: conn,
+		})
+	} else {
+		r.Error += err.Error()
 	}
 	re.Data = r
 
@@ -146,6 +154,32 @@ func (s *Server) processConn() {
 				if err != nil {
 					fmt.Println(err)
 				}
+			case "user_message":
+				data := c.Msg.Data.(*message.UserMessage)
+				if data.TotUid > 0 {
+
+				} else {
+					fmt.Println(data.FromUserName, ":", data.Msg)
+				}
+			case "online_users":
+				all := process.GetOnlineUsers()
+				arr := make([]message.UserPre, 0)
+				for _, userProcess := range all {
+					v := rdm.GetRdm().HGet(context.Background(), user.GetUserKey(userProcess.Uid), "name").Val()
+					arr = append(arr, message.UserPre{
+						Id:   userProcess.Uid,
+						Name: v,
+					})
+				}
+				err := process.WriteConn(c.Conn, message.Message{
+					Type: "online_users",
+					Code: 1,
+					Msg:  "",
+					Data: message.UsersPres{Data: arr},
+				})
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
 	}
@@ -155,6 +189,7 @@ func (server *Server) read(conn net.Conn) {
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
+			process.Disconnect(conn)
 			fmt.Println(err, "ssssssssssssssss")
 		}
 	}(conn)
