@@ -95,6 +95,15 @@ func (server *Server) Process(conn net.Conn) {
 	fmt.Println(read)
 }
 
+func notice(message2 message.Message) {
+	for _, userProcess := range process.GetOnlineUsers() {
+		err := process.WriteConn(userProcess.Conn, message2)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
 func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 	login, err := server.Login(s.Uid, s.Pw)
 	re := message.Message{
@@ -112,6 +121,12 @@ func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 		r.Msg = login.Name
 		r.Error = ""
 		r.User = *login
+		notice(message.Message{
+			Type: "notice",
+			Code: 0,
+			Msg:  fmt.Sprintf("%s已上线", login.Name),
+			Data: nil,
+		})
 		process.Push(&process.UserProcess{
 			Uid:  login.Id,
 			Conn: conn,
@@ -179,6 +194,20 @@ func (s *Server) processConn() {
 				})
 				if err != nil {
 					fmt.Println(err)
+				}
+			case "offline":
+				id := process.Disconnect(c.Conn)
+				u := dao.UserInfo(id)
+				for _, userProcess := range process.GetOnlineUsers() {
+					err := process.WriteConn(userProcess.Conn, message.Message{
+						Type: "notice",
+						Code: 0,
+						Msg:  "用户" + u.Name + "已下线",
+						Data: nil,
+					})
+					if err != nil {
+						fmt.Println(err)
+					}
 				}
 			}
 		}

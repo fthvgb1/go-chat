@@ -15,6 +15,25 @@ func init() {
 	Ctx = context.Background()
 }
 
+func UserInfo(id int) *user.User {
+	rd := rdm.GetRdm()
+	ctx := context.Background()
+	key := user.GetUserKey(id)
+	u := rd.HGetAll(ctx, key).Val()
+	return map2user(u)
+}
+
+func map2user(hash map[string]string) *user.User {
+	id, _ := strconv.Atoi(hash["id"])
+	sex, _ := strconv.Atoi(hash["sex"])
+	return &user.User{
+		Id:       id,
+		Name:     hash["name"],
+		Sex:      int8(sex),
+		Password: hash["password"],
+	}
+}
+
 func AddUser(u user.User) error {
 	getRdm := rdm.GetRdm()
 	if u.Name == "" {

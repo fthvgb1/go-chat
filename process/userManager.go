@@ -1,6 +1,7 @@
 package process
 
 import (
+	"fmt"
 	"net"
 )
 
@@ -31,11 +32,13 @@ func Del(id int) {
 	delete(onlineUsers, id)
 }
 
-func Disconnect(conn net.Conn) {
+func Disconnect(conn net.Conn) int {
 	for u, process := range GetOnlineUsers() {
 		if conn.RemoteAddr() == process.Conn.RemoteAddr() {
+			fmt.Println("用户", u, "已下线")
 			delete(onlineUsers, u)
-			break
+			return u
 		}
 	}
+	return 0
 }

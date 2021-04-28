@@ -99,6 +99,15 @@ func showMenu(name string, ms process.Ms) {
 		case 2:
 			sendMessage(ms.Conn)
 		case 4:
+			err := process.WriteConn(ms.Conn, message.Message{
+				Type: "offline",
+				Code: 0,
+				Msg:  "",
+				Data: nil,
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
 			menu1 <- 1
 			return
 		}
@@ -167,7 +176,10 @@ func handleMsg() { //处理
 					fmt.Printf("%d\t%s\n", pre.Id, pre.Name)
 				}
 				menu2 <- 1
+			case "notice":
+				fmt.Printf("\n系统:%s\n", c.Msg.Msg)
 			}
+
 		}
 	}
 }
