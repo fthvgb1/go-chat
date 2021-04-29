@@ -35,6 +35,7 @@ type UserMessage struct {
 	FromUserName string
 	TotUid       int
 	Msg          string
+	Datetime     string
 }
 
 type LoginS struct {

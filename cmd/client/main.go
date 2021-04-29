@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 )
 
 var menu1 = make(chan int)
@@ -42,7 +44,8 @@ func sendMessage(conn net.Conn) {
 	for {
 		fmt.Print("请输入内容: ")
 		var i string
-		_, err := fmt.Scanf("%s", &i)
+		in := bufio.NewReader(os.Stdin)
+		_, err := fmt.Fscanf(in, "%s", &i)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -50,15 +53,20 @@ func sendMessage(conn net.Conn) {
 		if i == "exit" {
 			break
 		}
+		a := strings.Split(i, "|")
+		uid := 0
+		if id, ok := strconv.Atoi(a[0]); ok == nil {
+			uid = id
+		}
 		err = process.WriteConn(conn, message.Message{
 			Type: "user_message",
 			Code: 1,
 			Msg:  "",
 			Data: message.UserMessage{
-				TotUid:       0,
+				TotUid:       uid,
 				FromUid:      thisUser.Id,
 				FromUserName: thisUser.Name,
-				Msg:          i,
+				Msg:          a[1],
 			},
 		})
 		if err != nil {
@@ -119,7 +127,7 @@ func addUser(conn net.Conn) {
 	fmt.Print("请输入姓名、密码、性别(1男2女)空格隔开:")
 	var name, pw string
 	var sex int8
-	_, err := fmt.Scanf("%s %s %d", &name, &pw, &sex)
+	_, err := fmt.Fscanf(bufio.NewReader(os.Stdin), "%s %s %d", &name, &pw, &sex)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -168,7 +176,7 @@ func handleMsg() { //处理
 				menu1 <- 1
 			case "user_message":
 				m := c.Msg.Data.(*message.UserMessage)
-				fmt.Printf("\r%s: %s\n", m.FromUserName, m.Msg)
+				fmt.Printf("\r%s  %s\n%s\n", m.FromUserName, m.Datetime, m.Msg)
 			case "online_users":
 				list := c.Msg.Data.(*message.UsersPres)
 				fmt.Printf("%s\t%s\n", "id", "昵称")
@@ -179,7 +187,6 @@ func handleMsg() { //处理
 			case "notice":
 				fmt.Printf("\n系统:%s\n", c.Msg.Msg)
 			}
-
 		}
 	}
 }

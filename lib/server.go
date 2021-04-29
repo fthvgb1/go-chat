@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strconv"
+	"time"
 )
 
 type Server struct {
@@ -141,6 +142,11 @@ func (server *Server) do(s *message.LoginS, conn net.Conn) (string, error) {
 }
 
 func (s *Server) processConn() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
 	for {
 		select {
 		case c := <-Rchan:
@@ -172,6 +178,44 @@ func (s *Server) processConn() {
 			case "user_message":
 				data := c.Msg.Data.(*message.UserMessage)
 				if data.TotUid > 0 {
+					to := process.Get(data.TotUid)
+					if to == nil {
+						to = process.Get(data.FromUid)
+						if to == nil {
+							break
+						}
+						err := process.WriteConn(to.Conn, message.Message{
+							Type: "user_message",
+							Code: 0,
+							Msg:  "user had offline",
+							Data: message.UserMessage{
+								FromUid:      0,
+								FromUserName: "系统",
+								TotUid:       data.FromUid,
+								Msg:          "user had offline",
+								Datetime:     time.Now().Format("2006-01-02 15:04:05"),
+							},
+						})
+						if err != nil {
+							fmt.Println(err)
+						}
+						break
+					}
+					err := process.WriteConn(to.Conn, message.Message{
+						Type: "user_message",
+						Code: 0,
+						Msg:  "",
+						Data: message.UserMessage{
+							FromUid:      data.FromUid,
+							FromUserName: data.FromUserName,
+							TotUid:       data.TotUid,
+							Msg:          data.Msg,
+							Datetime:     time.Now().Format("2006-01-02 15:04:05"),
+						},
+					})
+					if err != nil {
+						fmt.Println(err)
+					}
 
 				} else {
 					fmt.Println(data.FromUserName, ":", data.Msg)
@@ -224,65 +268,6 @@ func (server *Server) read(conn net.Conn) {
 	}(conn)
 
 	process.Read(conn, Rchan)
-
-	/*for {
-	var info = make([]byte, 65536)
-	i, err := conn.Read(info)
-	if err != nil {
-		fmt.Println(err, "errrrrrrrrrrrrr")
-		return
-	}
-	msg := message.Message{}
-	err = json.Unmarshal(info[:i], &msg)
-	if err != nil {
-		fmt.Println(err)
-	}
-	t := message.MsgType[msg.Type]
-	mm := message.Message{}
-	mm.Data = reflect.New(t).Interface()
-	err = json.Unmarshal(info[:i], &mm)
-	if err != nil {
-		fmt.Println(err)
-	}
-	switch msg.Type {
-	case "login_send":
-		if d,ok:=mm.Data.(*message.LoginS);ok{
-			_, err := server.do(d,conn)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-	}
-
-	/*switch reflect.TypeOf(mm.Data){
-	case reflect.TypeOf(&LoginS{}):
-		x :=mm.Data.(*LoginS)
-		e := s.Login(x.Uid,x.Pw)
-		re := Message{
-			Type: "login_response",
-			Data: nil,
-		}
-		if e != nil {
-			re.Data=Correspond{
-				Code:  0,
-				Msg:   "login fail",
-				Error: "pw fail or user not exist",
-			}
-		}else{
-			re.Data=Correspond{
-				Code:  1,
-				Msg:   "success",
-				Error: "",
-			}
-		}
-		m, _ :=json.Marshal(re)
-		_, err := conn.Write(m)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}*/
 
 }
 
