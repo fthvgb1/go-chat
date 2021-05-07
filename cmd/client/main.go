@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 )
 
 var menu1 = make(chan int)
@@ -41,6 +39,16 @@ func login(conn net.Conn) error {
 }
 
 func sendMessage(conn net.Conn) {
+	id := 0
+	for {
+		fmt.Print("请输入用户id(0为所有):")
+		_, err := fmt.Fscanf(bufio.NewReader(os.Stdin), "%d", &id)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			break
+		}
+	}
 	for {
 		fmt.Print("请输入内容: ")
 		var i string
@@ -53,11 +61,7 @@ func sendMessage(conn net.Conn) {
 		if i == "exit" {
 			break
 		}
-		a := strings.Split(i, "|")
-		uid := 0
-		if id, ok := strconv.Atoi(a[0]); ok == nil {
-			uid = id
-		}
+		uid := id
 		err = process.WriteConn(conn, message.Message{
 			Type: "user_message",
 			Code: 1,
@@ -66,7 +70,7 @@ func sendMessage(conn net.Conn) {
 				TotUid:       uid,
 				FromUid:      thisUser.Id,
 				FromUserName: thisUser.Name,
-				Msg:          a[1],
+				Msg:          i,
 			},
 		})
 		if err != nil {
@@ -83,7 +87,7 @@ func showMenu(name string, ms process.Ms) {
 		fmt.Printf("\t\t\t 1.显示在线用户列表\n")
 		fmt.Printf("\t\t\t 2.发送消息\n")
 		fmt.Printf("\t\t\t 3.信息列表\n")
-		fmt.Printf("\t\t\t 4.退出\n")
+		fmt.Printf("\t\t\t 4.返回上一级菜单\n")
 		fmt.Printf("\t\t\t 请选择(1-4):")
 		var k int
 		_, err := fmt.Scanf("%d", &k)
@@ -186,6 +190,9 @@ func handleMsg() { //处理
 				menu2 <- 1
 			case "notice":
 				fmt.Printf("\n系统:%s\n", c.Msg.Msg)
+			case "all_users":
+				m := c.Msg.Data.(*message.AllUser)
+				fmt.Printf("\r%s(%d)  %s\n%s\n", m.FromUserName, m.FromUid, m.DateTime, m.Msg)
 			}
 		}
 	}

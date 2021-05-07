@@ -11,6 +11,7 @@ var MsgType = map[string]reflect.Type{
 	"add_user":       reflect.TypeOf(&user.User{}).Elem(),
 	"user_message":   reflect.TypeOf(&UserMessage{}).Elem(),
 	"online_users":   reflect.TypeOf(&UsersPres{}).Elem(),
+	"all_users":      reflect.TypeOf(&AllUser{}).Elem(),
 }
 
 type Message struct {
@@ -19,6 +20,13 @@ type Message struct {
 	Code int         `json:"code"`
 	Msg  string      `json:"msg"`
 	Data interface{} `json:"data"`
+}
+
+type AllUser struct {
+	FromUid      int
+	FromUserName string
+	Msg          string
+	DateTime     string
 }
 
 type UsersPres struct {

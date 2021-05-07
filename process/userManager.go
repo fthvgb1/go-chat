@@ -36,7 +36,7 @@ func Disconnect(conn net.Conn) int {
 	for u, process := range GetOnlineUsers() {
 		if conn.RemoteAddr() == process.Conn.RemoteAddr() {
 			fmt.Println("用户", u, "已下线")
-			delete(onlineUsers, u)
+			Del(u)
 			return u
 		}
 	}

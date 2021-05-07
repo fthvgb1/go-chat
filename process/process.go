@@ -4,6 +4,7 @@ import (
 	"chat/message"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 )
@@ -41,7 +42,11 @@ func (t *Transfer) ReadConn(c chan Ms) {
 		var info = t.Buf
 		i, err := t.Conn.Read(info[:])
 		if err != nil {
-			fmt.Println(err, "errrrrrrrrrrrrr")
+			if err == io.EOF {
+				fmt.Println("连接已断开。。。。")
+			} else {
+				fmt.Println(err, "errrrrrrrrrrrrr")
+			}
 			return
 		}
 		msg := message.Message{}

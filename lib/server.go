@@ -177,6 +177,7 @@ func (s *Server) processConn() {
 				}
 			case "user_message":
 				data := c.Msg.Data.(*message.UserMessage)
+				now := time.Now().Format("2006-01-02 15:04:05")
 				if data.TotUid > 0 {
 					to := process.Get(data.TotUid)
 					if to == nil {
@@ -184,17 +185,12 @@ func (s *Server) processConn() {
 						if to == nil {
 							break
 						}
+						toU := dao.UserInfo(data.TotUid)
 						err := process.WriteConn(to.Conn, message.Message{
-							Type: "user_message",
+							Type: "notice",
 							Code: 0,
-							Msg:  "user had offline",
-							Data: message.UserMessage{
-								FromUid:      0,
-								FromUserName: "系统",
-								TotUid:       data.FromUid,
-								Msg:          "user had offline",
-								Datetime:     time.Now().Format("2006-01-02 15:04:05"),
-							},
+							Msg:  "用户" + toU.Name + "已下线",
+							Data: nil,
 						})
 						if err != nil {
 							fmt.Println(err)
@@ -210,7 +206,7 @@ func (s *Server) processConn() {
 							FromUserName: data.FromUserName,
 							TotUid:       data.TotUid,
 							Msg:          data.Msg,
-							Datetime:     time.Now().Format("2006-01-02 15:04:05"),
+							Datetime:     now,
 						},
 					})
 					if err != nil {
@@ -219,6 +215,22 @@ func (s *Server) processConn() {
 
 				} else {
 					fmt.Println(data.FromUserName, ":", data.Msg)
+					for _, userProcess := range process.GetOnlineUsers() {
+						err := process.WriteConn(userProcess.Conn, message.Message{
+							Type: "all_users",
+							Code: 0,
+							Msg:  "",
+							Data: message.AllUser{
+								FromUid:      data.FromUid,
+								FromUserName: data.FromUserName,
+								Msg:          data.Msg,
+								DateTime:     now,
+							},
+						})
+						if err != nil {
+							fmt.Println(err)
+						}
+					}
 				}
 			case "online_users":
 				all := process.GetOnlineUsers()
@@ -262,7 +274,19 @@ func (server *Server) read(conn net.Conn) {
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
-			process.Disconnect(conn)
+			id := process.Disconnect(conn)
+			u := dao.UserInfo(id)
+			for _, userProcess := range process.GetOnlineUsers() {
+				err := process.WriteConn(userProcess.Conn, message.Message{
+					Type: "notice",
+					Code: 0,
+					Msg:  "用户" + u.Name + "已掉线",
+					Data: nil,
+				})
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
 			fmt.Println(err, "ssssssssssssssss")
 		}
 	}(conn)
